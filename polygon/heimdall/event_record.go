@@ -62,7 +62,7 @@ func DecodeEventRecord(v rlp.RawValue) (*EventRecordWithTime, error) {
 
 type eventRecordWithIntTime struct {
 	EventRecord
-	Time *big.Int `json:"record_time" yaml:"record_time"` // use this instead of uint256 to allow for rlp encoding
+	Time *big.Int `json:"record_time" yaml:"record_time"` // use big.Int as time.Time is not RLP encodable
 }
 
 func (e *eventRecordWithIntTime) toTime() EventRecordWithTime {
