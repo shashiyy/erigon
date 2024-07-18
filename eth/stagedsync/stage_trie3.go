@@ -25,15 +25,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/c2h5oh/datasize"
 	"github.com/erigontech/erigon-lib/common/datadir"
 	"github.com/erigontech/erigon-lib/kv/dbutils"
 	"github.com/erigontech/erigon-lib/kv/temporal"
 	"github.com/erigontech/erigon-lib/log/v3"
-	"github.com/erigontech/erigon-lib/wrap"
-	"github.com/erigontech/erigon/consensus"
-	"github.com/erigontech/erigon/eth/ethconfig"
-	"github.com/erigontech/erigon/ethdb/prune"
 	"github.com/erigontech/erigon/turbo/stages/headerdownload"
 
 	"github.com/erigontech/erigon-lib/commitment"
@@ -42,7 +37,6 @@ import (
 	"github.com/erigontech/erigon/common/math"
 	"github.com/erigontech/erigon/turbo/services"
 
-<<<<<<< HEAD
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/length"
 	"github.com/erigontech/erigon-lib/etl"
@@ -51,17 +45,6 @@ import (
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/core/types/accounts"
 	"github.com/erigontech/erigon/turbo/trie"
-=======
-	libcommon "github.com/erigontech/erigon-lib/common"
-	"github.com/erigontech/erigon-lib/common/length"
-	"github.com/erigontech/erigon-lib/etl"
-	"github.com/erigontech/erigon-lib/kv"
-	"github.com/erigontech/erigon-lib/state"
-	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/core/types/accounts"
-	"github.com/erigontech/erigon/core/vm"
-	"github.com/erigontech/erigon/turbo/trie"
->>>>>>> 3acd293e2e (fix unwinding for witness)
 )
 
 func collectAndComputeCommitment(ctx context.Context, tx kv.RwTx, tmpDir string, toTxNum uint64) ([]byte, error) {
@@ -259,72 +242,6 @@ func StageHashStateCfg(db kv.RwDB, dirs datadir.Dirs) HashStateCfg {
 }
 
 var ErrInvalidStateRootHash = errors.New("invalid state root hash")
-
-func UnwindHashStateStage(u *UnwindState, s *StageState, tx kv.RwTx, cfg WitnessCfg, ctx context.Context, logger log.Logger) (err error) {
-	useExternalTx := tx != nil
-	if !useExternalTx {
-		tx, err = cfg.db.BeginRw(ctx)
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
-	}
-
-	logPrefix := u.LogPrefix()
-	if err = unwindHashStateStageImpl2(logPrefix, u, s, tx, cfg, ctx, logger); err != nil {
-		return err
-	}
-	if err = u.Done(tx); err != nil {
-		return err
-	}
-	if !useExternalTx {
-		if err = tx.Commit(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func unwindHashStateStageImpl2(logPrefix string, u *UnwindState, s *StageState, tx kv.RwTx, cfg WitnessCfg, ctx context.Context, logger log.Logger) error {
-
-	txc := wrap.TxContainer{Tx: tx}
-	batchSizeStr := "512M"
-	var batchSize datasize.ByteSize
-	err := batchSize.UnmarshalText([]byte(batchSizeStr))
-	if err != nil {
-		return err
-	}
-
-	pruneMode := prune.Mode{
-		Initialised: false,
-	}
-	var engine consensus.Engine = nil
-	vmConfig := &vm.Config{}
-	dirs := cfg.dirs
-	blockReader := cfg.blockReader
-	syncCfg := ethconfig.Defaults.Sync
-	var agg *state.Aggregator = nil
-	execCfg := StageExecuteBlocksCfg(cfg.db, pruneMode, batchSize, nil, engine, vmConfig, nil,
-		/*stateStream=*/ false,
-		/*badBlockHalt=*/ true, dirs, blockReader, nil, nil, syncCfg, agg, nil)
-	return UnwindExecutionStage(u, s, txc, ctx, execCfg, logger)
-}
-
-// func unwindHashStateStageImpl(logPrefix string, u *UnwindState, s *StageState, tx kv.RwTx, cfg HashStateCfg, ctx context.Context, logger log.Logger) error {
-// 	// Currently it does not require unwinding because it does not create any Intermediate Hash records
-// 	// and recomputes the state root from scratch
-// 	prom := NewPromoter(tx, cfg.dirs, ctx, logger)
-// 	if err := prom.UnwindOnHistoryV3(logPrefix, s.BlockNumber, u.UnwindPoint, false, true); err != nil {
-// 		return err
-// 	}
-// 	if err := prom.UnwindOnHistoryV3(logPrefix, s.BlockNumber, u.UnwindPoint, false, false); err != nil {
-// 		return err
-// 	}
-// 	if err := prom.UnwindOnHistoryV3(logPrefix, s.BlockNumber, u.UnwindPoint, true, false); err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
 
 func RebuildPatriciaTrieBasedOnFiles(rwTx kv.RwTx, cfg TrieCfg, ctx context.Context, logger log.Logger) (libcommon.Hash, error) {
 	useExternalTx := rwTx != nil
