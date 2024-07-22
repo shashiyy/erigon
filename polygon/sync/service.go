@@ -59,7 +59,7 @@ func NewService(
 	executionClient executionproto.ExecutionClient,
 	blockLimit uint,
 	polygonBridge bridge.Service,
-) Service {
+) (Service, func(context.Context, uint64) (*heimdall.Span, error)) {
 	borConfig := chainConfig.Bor.(*borcfg.BorConfig)
 	checkpointVerifier := VerifyCheckpointHeaders
 	milestoneVerifier := VerifyMilestoneHeaders
@@ -101,7 +101,7 @@ func NewService(
 		events:          events,
 		heimdallService: heimdallService,
 		bridge:          polygonBridge,
-	}
+	}, heimdallService.GetSpan
 }
 
 func (s *service) Run(parentCtx context.Context) error {

@@ -140,7 +140,7 @@ func (d *blockDownloader) downloadBlocksUsingWaypoints(
 
 	waypoints = d.limitWaypoints(waypoints)
 
-	d.logger.Debug(
+	d.logger.Warn(
 		syncLogPrefix("downloading blocks using waypoints"),
 		"waypointsLen", len(waypoints),
 		"start", waypoints[0].StartBlock().Uint64(),

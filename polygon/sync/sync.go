@@ -332,6 +332,7 @@ func (s *Sync) sync(
 		}
 
 		tip = newTip
+		s.logger.Warn("committin exec")
 		if err = s.commitExecution(ctx, tip, tip); err != nil {
 			return nil, err
 		}

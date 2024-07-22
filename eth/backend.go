@@ -991,7 +991,7 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 	}
 
 	if config.PolygonSync {
-		backend.polygonSyncService = polygonsync.NewService(
+		a, spangetter := polygonsync.NewService(
 			logger,
 			chainConfig,
 			dirs.DataDir,
@@ -1004,6 +1004,9 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 			config.LoopBlockLimit,
 			polygonBridge,
 		)
+
+		backend.polygonSyncService = a
+		backend.engine.(*bor.Bor).NewGetSpan = spangetter
 	}
 
 	return backend, nil

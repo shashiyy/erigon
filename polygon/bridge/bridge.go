@@ -138,7 +138,7 @@ func (b *Bridge) ProcessNewBlocks(ctx context.Context, blocks []*types.Block) er
 		}
 
 		if lastDBID != 0 && lastDBID > b.lastProcessedEventID {
-			b.log.Debug(bridgeLogPrefix(fmt.Sprintf("Creating map for block %d, start ID %d, end ID %d", block.NumberU64(), b.lastProcessedEventID, lastDBID)))
+			b.log.Warn(bridgeLogPrefix(fmt.Sprintf("Creating map for block %d, start ID %d, end ID %d", block.NumberU64(), b.lastProcessedEventID, lastDBID)))
 			eventMap[block.NumberU64()] = b.lastProcessedEventID
 
 			b.lastProcessedEventID = lastDBID
@@ -179,6 +179,9 @@ func (b *Bridge) GetEvents(ctx context.Context, blockNum uint64) ([]*types.Messa
 	start, end, err := b.store.GetEventIDRange(ctx, blockNum)
 	if err != nil {
 		return nil, err
+	}
+	if start == end { // no events
+		return nil, nil
 	}
 
 	if end == 0 { // exception for tip processing

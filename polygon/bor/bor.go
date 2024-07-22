@@ -330,6 +330,7 @@ type Bor struct {
 	rootHashCache       *lru.ARCCache[string, string]
 	headerProgress      HeaderProgress
 	polygonBridge       bridge.PolygonBridge
+	NewGetSpan          func(context.Context, uint64) (*heimdall.Span, error)
 }
 
 type signer struct {
@@ -1384,9 +1385,19 @@ func (c *Bor) fetchAndCommitSpan(
 
 		heimdallSpan = *s
 	} else {
-		spanJson := chain.Chain.BorSpan(newSpanID)
-		if err := json.Unmarshal(spanJson, &heimdallSpan); err != nil {
-			return err
+		// here instead of BorSpan, call the new heimdall service (probably need a new function to read by span ID)
+		if c.NewGetSpan != nil {
+			span, err := c.NewGetSpan(context.Background(), newSpanID)
+			if err != nil {
+				return err
+			}
+
+			heimdallSpan = *span
+		} else {
+			spanJson := chain.Chain.BorSpan(newSpanID)
+			if err := json.Unmarshal(spanJson, &heimdallSpan); err != nil {
+				return err
+			}
 		}
 	}
 
