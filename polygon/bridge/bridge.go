@@ -84,8 +84,15 @@ func (b *Bridge) Run(ctx context.Context) error {
 		return err
 	}
 
+	lastProcessedEventID, err := b.store.GetLastProcessedEventID(ctx)
+	if err != nil {
+		return err
+	}
+
+	b.lastProcessedEventID = lastProcessedEventID
+
 	// start syncing
-	b.log.Debug(bridgeLogPrefix("Bridge is running"), "lastEventID", lastEventID)
+	b.log.Info(bridgeLogPrefix("Bridge is running"), "lastEventID", lastEventID, "lastProcessedEventID", lastProcessedEventID)
 
 	for {
 		select {
@@ -139,6 +146,8 @@ func (b *Bridge) ProcessNewBlocks(ctx context.Context, blocks []*types.Block) er
 		if err != nil {
 			return err
 		}
+
+		//b.log.Info("db id", "blockNum", block.NumberU64(), "lastDBID", lastDBID)
 
 		if lastDBID != 0 && lastDBID > b.lastProcessedEventID {
 			b.log.Warn(bridgeLogPrefix(fmt.Sprintf("Creating map for block %d, start ID %d, end ID %d", block.NumberU64(), b.lastProcessedEventID, lastDBID)))

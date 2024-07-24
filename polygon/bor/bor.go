@@ -1558,6 +1558,12 @@ func (c *Bor) CommitStates(
 		}
 	}
 
+	if len(events) != 0 {
+		f, _ := heimdall.UnpackEventRecordWithTime(GenesisContractStateReceiverABI(), events[0])
+		l, _ := heimdall.UnpackEventRecordWithTime(GenesisContractStateReceiverABI(), events[len(events)-1])
+		c.logger.Warn("got events", "blockNum", blockNum, "startID", f.ID, "endID", l.ID)
+	}
+
 	for _, event := range events {
 		if err := c.GenesisContractsClient.CommitState(event, syscall); err != nil {
 			return err

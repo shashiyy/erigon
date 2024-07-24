@@ -17,6 +17,7 @@
 package borcfg
 
 import (
+	"fmt"
 	"math/big"
 	"sort"
 	"strconv"
@@ -48,7 +49,7 @@ type BorConfig struct {
 
 // String implements the stringer interface, returning the consensus engine details.
 func (c *BorConfig) String() string {
-	return "bor"
+	return fmt.Sprintf("bor, sprint: %v", c.Sprint)
 }
 
 func (c *BorConfig) CalculateProducerDelay(number uint64) uint64 {
