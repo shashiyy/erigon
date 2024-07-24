@@ -275,7 +275,7 @@ func (s *MdbxStore) GetEventIDRange(ctx context.Context, blockNum uint64) (uint6
 		return start, end, err
 	}
 	if v == nil { // we don't have a map
-		return start, end, nil
+		return start, end, ErrMapNotAvailable
 	}
 
 	err = binary.Read(bytes.NewReader(v), binary.BigEndian, &start)

@@ -18,6 +18,7 @@ package bridge
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -33,6 +34,8 @@ import (
 	"github.com/erigontech/erigon/polygon/bor/borcfg"
 	"github.com/erigontech/erigon/polygon/heimdall"
 )
+
+var ErrMapNotAvailable = errors.New("map not available")
 
 type fetchSyncEventsType func(ctx context.Context, fromId uint64, to time.Time, limit int) ([]*heimdall.EventRecordWithTime, error)
 
@@ -178,17 +181,18 @@ func (b *Bridge) Unwind(ctx context.Context, tip *types.Header) error {
 func (b *Bridge) GetEvents(ctx context.Context, blockNum uint64) ([]*types.Message, error) {
 	start, end, err := b.store.GetEventIDRange(ctx, blockNum)
 	if err != nil {
+		if errors.Is(err, ErrMapNotAvailable) {
+			return nil, nil
+		}
+
 		return nil, err
-	}
-	if start == end { // no events
-		return nil, nil
 	}
 
 	if end == 0 { // exception for tip processing
 		end = b.lastProcessedEventID
 	}
 
-	b.log.Debug("got map", "blockNum", blockNum, "start", start, "end", end)
+	b.log.Info("got map", "blockNum", blockNum, "start", start, "end", end)
 
 	eventsRaw := make([]*types.Message, 0, end-start+1)
 
@@ -198,7 +202,7 @@ func (b *Bridge) GetEvents(ctx context.Context, blockNum uint64) ([]*types.Messa
 		return nil, err
 	}
 
-	b.log.Debug(bridgeLogPrefix(fmt.Sprintf("got %v events for block %v", len(events), blockNum)))
+	b.log.Info(bridgeLogPrefix(fmt.Sprintf("got %v events for block %v", len(events), blockNum)))
 
 	// convert to message
 	for _, event := range events {
