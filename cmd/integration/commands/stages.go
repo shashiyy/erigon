@@ -863,7 +863,7 @@ func stageBodies(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 
 		if unwind > 0 {
 			if unwind > s.BlockNumber {
-				return fmt.Errorf("cannot unwind past 0")
+				return errors.New("cannot unwind past 0")
 			}
 
 			u := sync.NewUnwindState(stages.Bodies, s.BlockNumber-unwind, s.BlockNumber, true, false)
@@ -1027,7 +1027,7 @@ func stageExec(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 	br, _ := blocksIO(db, logger)
 	cfg := stagedsync.StageExecuteBlocksCfg(db, pm, batchSize, chainConfig, engine, vmConfig, nil,
 		/*stateStream=*/ false,
-		/*badBlockHalt=*/ true, dirs, br, nil, genesis, syncCfg, agg, nil)
+		/*badBlockHalt=*/ true, dirs, br, nil, genesis, syncCfg, nil)
 
 	if unwind > 0 {
 		if err := db.View(ctx, func(tx kv.Tx) error {
@@ -1505,7 +1505,6 @@ func newSync(ctx context.Context, db kv.RwDB, miningConfig *params.MiningConfig,
 				sentryControlServer.Hd,
 				cfg.Genesis,
 				cfg.Sync,
-				agg,
 				nil,
 			),
 			stagedsync.StageSendersCfg(db, sentryControlServer.ChainConfig, cfg.Sync, false, dirs.Tmp, cfg.Prune, blockReader, sentryControlServer.Hd, nil),
