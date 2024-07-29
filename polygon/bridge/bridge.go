@@ -135,21 +135,31 @@ func (b *Bridge) Close() {
 // ProcessNewBlocks iterates through all blocks and constructs a map from block number to sync events
 func (b *Bridge) ProcessNewBlocks(ctx context.Context, blocks []*types.Block) error {
 	eventMap := make(map[uint64]uint64)
+	var prevSprintTime time.Time
 	for _, block := range blocks {
 		// check if block is start of span
 		if !b.isSprintStart(block.NumberU64()) {
 			continue
 		}
 
-		blockTimestamp := time.Unix(int64(block.Time()), 0)
-		lastDBID, err := b.store.GetSprintLastEventID(ctx, b.lastProcessedEventID, blockTimestamp, b.stateReceiverABI)
+		var to time.Time
+		if b.borConfig.IsIndore(block.NumberU64()) {
+			stateSyncDelay := b.borConfig.CalculateStateSyncDelay(block.NumberU64())
+			to = time.Unix(int64(block.Time()-stateSyncDelay), 0)
+		} else {
+			to = prevSprintTime
+		}
+
+		prevSprintTime = time.Unix(int64(block.Time()), 0)
+
+		lastDBID, err := b.store.GetSprintLastEventID(ctx, b.lastProcessedEventID, to, b.stateReceiverABI)
 		if err != nil {
 			return err
 		}
 
 		//b.log.Info("db id", "blockNum", block.NumberU64(), "lastDBID", lastDBID)
 
-		if lastDBID != 0 && lastDBID > b.lastProcessedEventID {
+		if lastDBID > b.lastProcessedEventID {
 			b.log.Warn(bridgeLogPrefix(fmt.Sprintf("Creating map for block %d, start ID %d, end ID %d", block.NumberU64(), b.lastProcessedEventID, lastDBID)))
 			eventMap[block.NumberU64()] = b.lastProcessedEventID
 
@@ -187,7 +197,7 @@ func (b *Bridge) Unwind(ctx context.Context, tip *types.Header) error {
 }
 
 // GetEvents returns all sync events at blockNum
-func (b *Bridge) GetEvents(ctx context.Context, blockNum uint64) ([]*types.Message, error) {
+func (b *Bridge) GetEvents(ctx context.Context, blockNum uint64, blockTime uint64) ([]*types.Message, error) {
 	start, end, err := b.store.GetEventIDRange(ctx, blockNum)
 	if err != nil {
 		if errors.Is(err, ErrMapNotAvailable) {
@@ -201,8 +211,6 @@ func (b *Bridge) GetEvents(ctx context.Context, blockNum uint64) ([]*types.Messa
 		end = b.lastProcessedEventID
 	}
 
-	b.log.Info("got map", "blockNum", blockNum, "start", start, "end", end)
-
 	eventsRaw := make([]*types.Message, 0, end-start+1)
 
 	// get events from DB
@@ -212,6 +220,15 @@ func (b *Bridge) GetEvents(ctx context.Context, blockNum uint64) ([]*types.Messa
 	}
 
 	b.log.Info(bridgeLogPrefix(fmt.Sprintf("got %v events for block %v", len(events), blockNum)))
+
+	if len(events) > 0 {
+		ev, err := heimdall.UnpackEventRecordWithTime(b.stateReceiverABI, events[len(events)-1])
+		if err != nil {
+			b.log.Info("unable to decode event", "err", err)
+		}
+
+		b.log.Info("got map", "blockNum", blockNum, "start", start+1, "end", end, "eventTime", ev.Time.Unix(), "blockTime", blockTime)
+	}
 
 	// convert to message
 	for _, event := range events {
