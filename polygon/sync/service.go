@@ -33,6 +33,7 @@ import (
 )
 
 type Service interface {
+	HeimdallService() heimdall.Service
 	Run(ctx context.Context) error
 }
 
@@ -59,7 +60,7 @@ func NewService(
 	executionClient executionproto.ExecutionClient,
 	blockLimit uint,
 	polygonBridge bridge.Service,
-) (Service, func(context.Context, uint64) (*heimdall.Span, error)) {
+) Service {
 	borConfig := chainConfig.Bor.(*borcfg.BorConfig)
 	checkpointVerifier := VerifyCheckpointHeaders
 	milestoneVerifier := VerifyMilestoneHeaders
@@ -101,7 +102,11 @@ func NewService(
 		events:          events,
 		heimdallService: heimdallService,
 		bridge:          polygonBridge,
-	}, heimdallService.GetSpan
+	}
+}
+
+func (s *service) HeimdallService() heimdall.Service {
+	return s.heimdallService
 }
 
 func (s *service) Run(parentCtx context.Context) error {

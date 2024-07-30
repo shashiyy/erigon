@@ -320,6 +320,7 @@ type Bor struct {
 	spanner                Spanner
 	GenesisContractsClient GenesisContracts
 	HeimdallClient         heimdall.HeimdallClient
+	HeimdallService        heimdall.Service
 
 	// scope event.SubscriptionScope
 	// The fields below are for testing only
@@ -332,7 +333,6 @@ type Bor struct {
 	rootHashCache       *lru.ARCCache[string, string]
 	headerProgress      HeaderProgress
 	polygonBridge       bridge.PolygonBridge
-	getSpan             func(context.Context, uint64) (*heimdall.Span, error)
 }
 
 type signer struct {
@@ -395,10 +395,6 @@ func New(
 	}
 
 	return c
-}
-
-func (c *Bor) SetGetSpan(f func(context.Context, uint64) (*heimdall.Span, error)) {
-	c.getSpan = f
 }
 
 type rwWrapper struct {
@@ -1392,8 +1388,8 @@ func (c *Bor) fetchAndCommitSpan(
 		heimdallSpan = *s
 	} else {
 		// here instead of BorSpan, call the new heimdall service (probably need a new function to read by span ID)
-		if c.getSpan != nil {
-			span, err := c.getSpan(context.Background(), newSpanID)
+		if c.HeimdallService != nil {
+			span, err := c.HeimdallService.GetSpan(context.Background(), newSpanID)
 			if err != nil {
 				return err
 			}
