@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -96,7 +95,7 @@ var (
 	stateCacheStr string
 )
 
-func RootCommand() (*cobra.Command, *httpcfg.HttpCfg) {
+func RootCommand() (*cobra.Command, *httpcfg.HttpCfg, bool) {
 	utils.CobraFlags(rootCmd, debug.Flags, utils.MetricFlags, logging.Flags)
 
 	cfg := &httpcfg.HttpCfg{Sync: ethconfig.Defaults.Sync, Enabled: true, StateCache: kvcache.DefaultCoherentConfig}
@@ -166,6 +165,10 @@ func RootCommand() (*cobra.Command, *httpcfg.HttpCfg) {
 	rootCmd.PersistentFlags().DurationVar(&cfg.RPCSlowLogThreshold, utils.RPCSlowFlag.Name, utils.RPCSlowFlag.Value, utils.RPCSlowFlag.Usage)
 	rootCmd.PersistentFlags().IntVar(&cfg.WebsocketSubscribeLogsChannelSize, utils.WSSubscribeLogsChannelSize.Name, utils.WSSubscribeLogsChannelSize.Value, utils.WSSubscribeLogsChannelSize.Usage)
 
+	var polygonSync bool
+	rootCmd.PersistentFlags().BoolVar(&polygonSync, "polygon.sync", true, "Enabling syncing using the new polygon sync component")
+
+	fmt.Println(polygonSync)
 	if err := rootCmd.MarkPersistentFlagFilename("rpc.accessList", "json"); err != nil {
 		panic(err)
 	}
@@ -206,7 +209,7 @@ func RootCommand() (*cobra.Command, *httpcfg.HttpCfg) {
 
 	cfg.StateCache.MetricsLabel = "rpc"
 
-	return rootCmd, cfg
+	return rootCmd, cfg, polygonSync
 }
 
 type StateChangesClient interface {
@@ -498,23 +501,23 @@ func RemoteServices(ctx context.Context, cfg *httpcfg.HttpCfg, logger log.Logger
 		switch {
 		case cc != nil:
 			switch {
-			case cc.Bor != nil:
-				var borKv kv.RoDB
+			//case cc.Bor != nil:
+			//var borKv kv.RoDB
 
-				// bor (consensus) specific db
-				borDbPath := filepath.Join(cfg.DataDir, "bor")
-				logger.Warn("[rpc] Opening Bor db", "path", borDbPath)
-				borKv, err = kv2.NewMDBX(logger).Path(borDbPath).Label(kv.ConsensusDB).Accede().Open(ctx)
-				if err != nil {
-					return nil, nil, nil, nil, nil, nil, nil, ff, err
-				}
-				// Skip the compatibility check, until we have a schema in erigon-lib
+			// bor (consensus) specific db
+			//borDbPath := filepath.Join(cfg.DataDir, "bor")
+			//logger.Warn("[rpc] Opening Bor db", "path", borDbPath)
+			//borKv, err = kv2.NewMDBX(logger).Path(borDbPath).Label(kv.ConsensusDB).Accede().Open(ctx)
+			//if err != nil {
+			//	return nil, nil, nil, nil, nil, nil, nil, ff, err
+			//}
+			// Skip the compatibility check, until we have a schema in erigon-lib
 
-				borConfig := cc.Bor.(*borcfg.BorConfig)
+			//borConfig := cc.Bor.(*borcfg.BorConfig)
 
-				engine = bor.NewRo(cc, borKv, blockReader,
-					bor.NewChainSpanner(bor.GenesisContractValidatorSetABI(), cc, true, logger),
-					bor.NewGenesisContractsClient(cc, borConfig.ValidatorContract, borConfig.StateReceiverContract, logger), logger)
+			//engine = bor.NewRo(cc, borKv, blockReader,
+			//	bor.NewChainSpanner(bor.GenesisContractValidatorSetABI(), cc, true, logger),
+			//	bor.NewGenesisContractsClient(cc, borConfig.ValidatorContract, borConfig.StateReceiverContract, logger), logger)
 
 			default:
 				engine = ethash.NewFaker()

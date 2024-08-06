@@ -26,6 +26,7 @@ import (
 
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon/cmd/rpcdaemon/cli"
+	"github.com/erigontech/erigon/polygon/bridge"
 	"github.com/erigontech/erigon/rpc"
 	"github.com/erigontech/erigon/turbo/debug"
 	"github.com/erigontech/erigon/turbo/jsonrpc"
@@ -35,7 +36,7 @@ import (
 )
 
 func main() {
-	cmd, cfg := cli.RootCommand()
+	cmd, cfg, polygonSync := cli.RootCommand()
 	rootCtx, rootCancel := common.RootContext()
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
@@ -50,7 +51,16 @@ func main() {
 		defer db.Close()
 		defer engine.Close()
 
-		apiList := jsonrpc.APIList(db, backend, txPool, mining, ff, stateCache, blockReader, cfg, engine, logger, nil)
+		var bridgeReader bridge.ReaderService
+		if polygonSync {
+			bridgeReader, err = bridge.AssembleReader(ctx, cfg.DataDir, logger)
+			if err != nil {
+				return err
+			}
+			defer bridgeReader.Close()
+		}
+
+		apiList := jsonrpc.APIList(db, backend, txPool, mining, ff, stateCache, blockReader, cfg, engine, logger, bridgeReader)
 		rpc.PreAllocateRPCMetricLabels(apiList)
 		if err := cli.StartRpcServer(ctx, cfg, apiList, logger); err != nil {
 			logger.Error(err.Error())
