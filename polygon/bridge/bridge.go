@@ -61,13 +61,13 @@ type Reader struct {
 }
 
 func Assemble(dataDir string, logger log.Logger, borConfig *borcfg.BorConfig, fetchSyncEvents fetchSyncEventsType, stateReceiverABI abi.ABI) *Bridge {
-	bridgeDB := polygoncommon.NewDatabase(dataDir, kv.PolygonBridgeDB, databaseTablesCfg, logger)
+	bridgeDB := polygoncommon.NewDatabase(dataDir, kv.PolygonBridgeDB, databaseTablesCfg, logger, false)
 	bridgeStore := NewStore(bridgeDB)
 	return NewBridge(bridgeStore, logger, borConfig, fetchSyncEvents, stateReceiverABI)
 }
 
 func AssembleReader(ctx context.Context, dataDir string, logger log.Logger) (*Reader, error) {
-	bridgeDB := polygoncommon.NewDatabase(dataDir, kv.PolygonBridgeDB, databaseTablesCfg, logger)
+	bridgeDB := polygoncommon.NewDatabase(dataDir, kv.PolygonBridgeDB, databaseTablesCfg, logger, true)
 	bridgeStore := NewStore(bridgeDB)
 
 	err := bridgeStore.Prepare(ctx)
