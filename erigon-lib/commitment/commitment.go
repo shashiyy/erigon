@@ -67,7 +67,7 @@ type Trie interface {
 }
 
 type PatriciaContext interface {
-	// GetBranch load branch node and fill up the cells
+	// Branch load branch node and fill up the cells
 	// For each cell, it sets the cell type, clears the modified flag, fills the hash,
 	// and for the extension, account, and leaf type, the `l` and `k`
 	Branch(prefix []byte) ([]byte, uint64, error)
@@ -104,66 +104,6 @@ func InitializeTrieAndUpdates(tv TrieVariant, mode Mode, tmpdir string) (Trie, *
 		tree := NewUpdates(mode, tmpdir, trie.hashAndNibblizeKey)
 		return trie, tree
 	}
-}
-
-type PartFlags uint8
-
-const (
-	HashedKeyPart    PartFlags = 1
-	AccountPlainPart PartFlags = 2
-	StoragePlainPart PartFlags = 4
-	HashPart         PartFlags = 8
-	LeafHashPart     PartFlags = 16
-)
-
-type BranchData []byte
-
-func (branchData BranchData) String() string {
-	if len(branchData) == 0 {
-		return ""
-	}
-	touchMap := binary.BigEndian.Uint16(branchData[0:])
-	afterMap := binary.BigEndian.Uint16(branchData[2:])
-	pos := 4
-	var sb strings.Builder
-	var cell cell
-	fmt.Fprintf(&sb, "touchMap %016b, afterMap %016b\n", touchMap, afterMap)
-	for bitset, j := touchMap, 0; bitset != 0; j++ {
-		bit := bitset & -bitset
-		nibble := bits.TrailingZeros16(bit)
-		fmt.Fprintf(&sb, "   %x => ", nibble)
-		if afterMap&bit == 0 {
-			sb.WriteString("{DELETED}\n")
-		} else {
-			fieldBits := PartFlags(branchData[pos])
-			pos++
-			var err error
-			if pos, err = cell.fillFromFields(branchData, pos, fieldBits); err != nil {
-				// This is used for test output, so ok to panic
-				panic(err)
-			}
-			sb.WriteString("{")
-			var comma string
-			if cell.downHashedLen > 0 {
-				fmt.Fprintf(&sb, "hashedKey=[%x]", cell.downHashedKey[:cell.downHashedLen])
-				comma = ","
-			}
-			if cell.accountPlainKeyLen > 0 {
-				fmt.Fprintf(&sb, "%saccountPlainKey=[%x]", comma, cell.accountPlainKey[:cell.accountPlainKeyLen])
-				comma = ","
-			}
-			if cell.storagePlainKeyLen > 0 {
-				fmt.Fprintf(&sb, "%sstoragePlainKey=[%x]", comma, cell.storagePlainKey[:cell.storagePlainKeyLen])
-				comma = ","
-			}
-			if cell.hashLen > 0 {
-				fmt.Fprintf(&sb, "%shash=[%x]", comma, cell.hash[:cell.hashLen])
-			}
-			sb.WriteString("}\n")
-		}
-		bitset ^= bit
-	}
-	return sb.String()
 }
 
 type BranchEncoder struct {
@@ -354,6 +294,66 @@ func (be *BranchEncoder) EncodeBranch(bitmap, touchMap, afterMap uint16, readCel
 }
 
 func RetrieveCellNoop(nibble int, skip bool) (*cell, error) { return nil, nil }
+
+type PartFlags uint8
+
+const (
+	HashedKeyPart    PartFlags = 1
+	AccountPlainPart PartFlags = 2
+	StoragePlainPart PartFlags = 4
+	HashPart         PartFlags = 8
+	LeafHashPart     PartFlags = 16
+)
+
+type BranchData []byte
+
+func (branchData BranchData) String() string {
+	if len(branchData) == 0 {
+		return ""
+	}
+	touchMap := binary.BigEndian.Uint16(branchData[0:])
+	afterMap := binary.BigEndian.Uint16(branchData[2:])
+	pos := 4
+	var sb strings.Builder
+	var cell cell
+	fmt.Fprintf(&sb, "touchMap %016b, afterMap %016b\n", touchMap, afterMap)
+	for bitset, j := touchMap, 0; bitset != 0; j++ {
+		bit := bitset & -bitset
+		nibble := bits.TrailingZeros16(bit)
+		fmt.Fprintf(&sb, "   %x => ", nibble)
+		if afterMap&bit == 0 {
+			sb.WriteString("{DELETED}\n")
+		} else {
+			fieldBits := PartFlags(branchData[pos])
+			pos++
+			var err error
+			if pos, err = cell.fillFromFields(branchData, pos, fieldBits); err != nil {
+				// This is used for test output, so ok to panic
+				panic(err)
+			}
+			sb.WriteString("{")
+			var comma string
+			if cell.downHashedLen > 0 {
+				fmt.Fprintf(&sb, "hashedKey=[%x]", cell.downHashedKey[:cell.downHashedLen])
+				comma = ","
+			}
+			if cell.accountPlainKeyLen > 0 {
+				fmt.Fprintf(&sb, "%saccountPlainKey=[%x]", comma, cell.accountPlainKey[:cell.accountPlainKeyLen])
+				comma = ","
+			}
+			if cell.storagePlainKeyLen > 0 {
+				fmt.Fprintf(&sb, "%sstoragePlainKey=[%x]", comma, cell.storagePlainKey[:cell.storagePlainKeyLen])
+				comma = ","
+			}
+			if cell.hashLen > 0 {
+				fmt.Fprintf(&sb, "%shash=[%x]", comma, cell.hash[:cell.hashLen])
+			}
+			sb.WriteString("}\n")
+		}
+		bitset ^= bit
+	}
+	return sb.String()
+}
 
 // if fn returns nil, the original key will be copied from branchData
 func (branchData BranchData) ReplacePlainKeys(newData []byte, fn func(key []byte, isStorage bool) (newKey []byte, err error)) (BranchData, error) {
