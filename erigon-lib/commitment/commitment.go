@@ -22,9 +22,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/holiman/uint256"
 	"math/bits"
 	"strings"
+
+	"github.com/holiman/uint256"
 
 	"github.com/google/btree"
 	"golang.org/x/crypto/sha3"
@@ -112,6 +113,7 @@ const (
 	AccountPlainPart PartFlags = 2
 	StoragePlainPart PartFlags = 4
 	HashPart         PartFlags = 8
+	LeafHashPart     PartFlags = 6
 )
 
 type BranchData []byte
@@ -304,6 +306,9 @@ func (be *BranchEncoder) EncodeBranch(bitmap, touchMap, afterMap uint16, readCel
 			}
 			if cell.accountPlainKeyLen > 0 {
 				fieldBits |= AccountPlainPart
+				if cell.lhLen > 0 {
+					fieldBits |= LeafHashPart
+				}
 			}
 			if cell.storagePlainKeyLen > 0 {
 				fieldBits |= StoragePlainPart
@@ -334,6 +339,12 @@ func (be *BranchEncoder) EncodeBranch(bitmap, touchMap, afterMap uint16, readCel
 					return nil, 0, err
 				}
 			}
+			if fieldBits&LeafHashPart != 0 {
+				if err := putUvarAndVal(uint64(cell.lhLen), cell.leafHash[:cell.lhLen]); err != nil {
+					return nil, 0, err
+				}
+			}
+
 		}
 		bitset ^= bit
 	}
@@ -462,6 +473,24 @@ func (branchData BranchData) ReplacePlainKeys(newData []byte, fn func(key []byte
 				pos += int(l)
 			}
 		}
+		if fieldBits&LeafHashPart != 0 {
+			l, n := binary.Uvarint(branchData[pos:])
+			if n == 0 {
+				return nil, fmt.Errorf("replacePlainKeys buffer too small for acLeaf hash len")
+			} else if n < 0 {
+				return nil, fmt.Errorf("replacePlainKeys value overflow for acLeafhash len")
+			}
+			newData = append(newData, branchData[pos:pos+n]...)
+			pos += n
+			if len(branchData) < pos+int(l) {
+				return nil, fmt.Errorf("replacePlainKeys buffer too small for acLeafHash")
+			}
+			if l > 0 {
+				newData = append(newData, branchData[pos:pos+int(l)]...)
+				pos += int(l)
+			}
+		}
+
 		bitset ^= bit
 	}
 
