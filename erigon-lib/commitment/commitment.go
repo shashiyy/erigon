@@ -113,7 +113,7 @@ const (
 	AccountPlainPart PartFlags = 2
 	StoragePlainPart PartFlags = 4
 	HashPart         PartFlags = 8
-	LeafHashPart     PartFlags = 6
+	LeafHashPart     PartFlags = 16
 )
 
 type BranchData []byte
@@ -307,6 +307,7 @@ func (be *BranchEncoder) EncodeBranch(bitmap, touchMap, afterMap uint16, readCel
 			if cell.accountPlainKeyLen > 0 {
 				fieldBits |= AccountPlainPart
 				if cell.lhLen > 0 {
+					fmt.Printf("lhlen %d\n", cell.lhLen)
 					fieldBits |= LeafHashPart
 				}
 			}
@@ -340,11 +341,11 @@ func (be *BranchEncoder) EncodeBranch(bitmap, touchMap, afterMap uint16, readCel
 				}
 			}
 			if fieldBits&LeafHashPart != 0 {
+				fmt.Printf("LH encoded(%d) %x\n", cell.lhLen, cell.leafHash[:cell.lhLen])
 				if err := putUvarAndVal(uint64(cell.lhLen), cell.leafHash[:cell.lhLen]); err != nil {
 					return nil, 0, err
 				}
 			}
-
 		}
 		bitset ^= bit
 	}
