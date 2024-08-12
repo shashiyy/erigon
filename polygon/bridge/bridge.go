@@ -18,6 +18,7 @@ package bridge
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync/atomic"
@@ -28,6 +29,7 @@ import (
 	"github.com/erigontech/erigon/common/u256"
 	"github.com/erigontech/erigon/core"
 	"github.com/erigontech/erigon/core/state"
+	"github.com/erigontech/erigon/params"
 	bortypes "github.com/erigontech/erigon/polygon/bor/types"
 	"github.com/erigontech/erigon/polygon/polygoncommon"
 
@@ -56,8 +58,9 @@ type Bridge struct {
 }
 
 type Reader struct {
-	store Store
-	log   log.Logger
+	store              Store
+	log                log.Logger
+	stateClientAddress libcommon.Address
 }
 
 func Assemble(dataDir string, logger log.Logger, borConfig *borcfg.BorConfig, fetchSyncEvents fetchSyncEventsType, stateReceiverABI abi.ABI) *Bridge {
@@ -70,12 +73,17 @@ func AssembleReader(ctx context.Context, dataDir string, logger log.Logger) (*Re
 	bridgeDB := polygoncommon.NewDatabase(dataDir, kv.PolygonBridgeDB, databaseTablesCfg, logger, true)
 	bridgeStore := NewStore(bridgeDB)
 
+	borConfig := &borcfg.BorConfig{}
+	if err := json.Unmarshal(params.BorMainnetChainConfig.BorJSON, borConfig); err != nil {
+		return nil, fmt.Errorf("invalid chain config 'bor' JSON. err: %w", err)
+	}
+
 	err := bridgeStore.Prepare(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewReader(bridgeStore, logger), nil
+	return NewReader(bridgeStore, logger, borConfig.StateReceiverContract), nil
 }
 
 func NewBridge(store Store, logger log.Logger, borConfig *borcfg.BorConfig, fetchSyncEvents fetchSyncEventsType, stateReceiverABI abi.ABI) *Bridge {
@@ -89,10 +97,11 @@ func NewBridge(store Store, logger log.Logger, borConfig *borcfg.BorConfig, fetc
 	}
 }
 
-func NewReader(store Store, log log.Logger) *Reader {
+func NewReader(store Store, log log.Logger, stateReceiverContractAddress string) *Reader {
 	return &Reader{
-		store: store,
-		log:   log,
+		store:              store,
+		log:                log,
+		stateClientAddress: libcommon.HexToAddress(stateReceiverContractAddress),
 	}
 }
 
